@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { getSumOfTextDisplaysInModal, modalSchema } from "@/lib/schemas";
 import z from 'zod'
 import LabelEditor from "@/components/editor/LabelEditor";
-import { ComponentType, TextInputStyle } from "discord-api-types/v10";
+import { APILabelComponent, ComponentType, TextInputStyle } from "discord-api-types/v10";
 import {
   DndContext,
   closestCenter,
@@ -29,6 +29,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import TextDisplayEditor from "@/components/editor/TextDisplayEditor";
 import Modal from "@/components/preview/Modal";
 import { useEffect, useRef, useState } from "react";
+import hljs from 'highlight.js/lib/core';
+import javascript from 'highlight.js/lib/languages/javascript';
+import json from 'highlight.js/lib/languages/json';
+import './highlight-theme.css';
+import ReactSelect from "react-select";
+
+// Register languages
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('json', json);
 
 function getComponentName(type: ComponentType | 19) {
   switch (type) {
@@ -59,26 +68,26 @@ const MAX_URL_LENGTH = 2000;
 // Encode UTF-8 string to base64
 function base64Encode(utf8: string): string {
   const encoded = encodeURIComponent(utf8);
-  
+
   // Convert percent-encoded string to characters that btoa can handle
   const escaped = encoded.replace(/%[\dA-F]{2}/g, (hex) => {
     return String.fromCharCode(Number.parseInt(hex.slice(1), 16));
   });
-  
+
   return btoa(escaped);
 }
 
 // Decode base64 to UTF-8 string
 function base64Decode(base64: string): string {
   const decoded = atob(base64);
-  
+
   // Convert each character to percent-encoded format
   const encoded = decoded
     .split("")
     .map((char) => char.charCodeAt(0).toString(16))
     .map((hex) => `%${hex.padStart(2, "0").slice(-2)}`)
     .join("");
-  
+
   return decodeURIComponent(encoded);
 }
 
@@ -107,7 +116,9 @@ function decodeFormState(encoded: string): z.infer<typeof modalSchema> | null {
 export default function Home() {
   const [isUrlTooLong, setIsUrlTooLong] = useState(false);
   const isInitialMount = useRef(true);
-  
+  const [codeGenMode, setCodeGenMode] = useState<'json' | 'djs'>('json');
+  const [isAlphaEnabled, setIsAlphaEnabled] = useState(false);
+
   const form = useForm<z.infer<typeof modalSchema>>({
     resolver: zodResolver(modalSchema),
     mode: 'onChange',
@@ -127,10 +138,26 @@ export default function Home() {
   });
   const { fields, append, remove, move } = useFieldArray({ name: 'components', control: form.control });
 
+  // Load code generation mode and alpha flag from URL query params on initial mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const searchParams = new URLSearchParams(window.location.search);
+    
+    const generate = searchParams.get('generate');
+    if (generate === 'djs') {
+      setCodeGenMode('djs');
+    } else {
+      setCodeGenMode('json');
+    }
+    
+    const alpha = searchParams.get('alpha');
+    setIsAlphaEnabled(alpha === 'true');
+  }, []);
+
   // Load form state from URL fragment on initial mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const fragment = window.location.hash.substring(1); // Remove the # character
     if (fragment) {
       const decoded = decodeFormState(fragment);
@@ -150,20 +177,20 @@ export default function Home() {
 
     const debounceTimer = setTimeout(() => {
       if (typeof window === 'undefined') return;
-      
+
       // If form state is invalid, remove the fragment
       if (!form.formState.isValid) {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
         return;
       }
-      
+
       const formState = form.watch();
       const encoded = encodeFormState(formState);
-      
+
       // Calculate the total URL length including domain, path, query string, and fragment
       const baseUrl = window.location.origin + window.location.pathname + window.location.search;
       const totalUrlLength = baseUrl.length + 1 + encoded.length; // +1 for the # character
-      
+
       // Check if the total URL exceeds the safe length
       if (totalUrlLength > MAX_URL_LENGTH) {
         setIsUrlTooLong(true);
@@ -200,6 +227,20 @@ export default function Home() {
     }
   }
 
+  function handleCodeGenModeChange(mode: 'json' | 'djs') {
+    setCodeGenMode(mode);
+    
+    if (typeof window === 'undefined') return;
+    
+    const url = new URL(window.location.href);
+    if (mode === 'djs') {
+      url.searchParams.set('generate', 'djs');
+    } else {
+      url.searchParams.delete('generate');
+    }
+    window.history.replaceState(null, '', url.toString());
+  }
+
   return (
     <div>
       <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100dvh)]">
@@ -208,11 +249,11 @@ export default function Home() {
             <form className="space-y-2" onSubmit={(e) => e.preventDefault()}>
               {isUrlTooLong && (
                 <div className="bg-[#a1630014] border rounded-[8px] border-[#ce9c5c] p-[8px] text-[14px] mt-2 mb-4 flex gap-3 justify-between">
-                <div className="flex gap-[8px] items-center">
-                  <svg className="shrink-0" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="transparent"></circle><path fill="#ce9c5c" fillRule="evenodd" d="M12 23a11 11 0 1 0 0-22 11 11 0 0 0 0 22Zm1.44-15.94L13.06 14a1.06 1.06 0 0 1-2.12 0l-.38-6.94a1 1 0 0 1 1-1.06h.88a1 1 0 0 1 1 1.06Zm-.19 10.69a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Z" clipRule="evenodd"></path></svg>
-                  <div>The modal is too big to be saved in the url</div>
+                  <div className="flex gap-[8px] items-center">
+                    <svg className="shrink-0" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="transparent"></circle><path fill="#ce9c5c" fillRule="evenodd" d="M12 23a11 11 0 1 0 0-22 11 11 0 0 0 0 22Zm1.44-15.94L13.06 14a1.06 1.06 0 0 1-2.12 0l-.38-6.94a1 1 0 0 1 1-1.06h.88a1 1 0 0 1 1 1.06Zm-.19 10.69a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Z" clipRule="evenodd"></path></svg>
+                    <div>The modal is too big to be saved in the url</div>
+                  </div>
                 </div>
-              </div>
               )}
               <FormField
                 control={form.control}
@@ -379,20 +420,22 @@ export default function Home() {
                               ><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                   <path d="M15 12.0024V13C15 14.1046 15.8954 15 17 15C18.1046 15 19 14.1046 19 13V12C19 10.5021 18.5197 9.04388 17.6294 7.83935C16.7391 6.63482 15.4856 5.74757 14.0537 5.3081C12.6218 4.86863 11.0866 4.90001 9.67383 5.39771C8.26109 5.89542 7.04534 6.83359 6.20508 8.07355C5.36482 9.31351 4.94457 10.7899 5.00587 12.2865C5.06717 13.7831 5.60688 15.2207 6.54573 16.3878C7.48458 17.5549 8.77336 18.3899 10.2221 18.7704C11.6708 19.1509 13.2027 19.0566 14.5939 18.5015M15 12.0024C14.9987 13.6582 13.656 15 12 15C10.3431 15 9 13.6568 9 12C9 10.3431 10.3431 8.99999 12 8.99999C13.656 8.99999 14.9987 10.3418 15 11.9976M15 12.0024V11.9976M15 11.9976V8.99999" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>User & Role Select</DropdownMenuItem>
-                              <DropdownMenuItem
-                                disabled={fields.length >= 5}
-                                onClick={() =>
-                                  append({
-                                    type: ComponentType.Label,
-                                    label: "File Upload",
-                                    component: {
-                                      type: 19,
-                                      custom_id: crypto.randomUUID().replace(/-/g, '')
-                                    }
-                                  })
-                                }
-                              ><svg aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M13.82 21.7c.17.05.14.3-.04.3H6a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h7.5c.28 0 .5.22.5.5V5a5 5 0 0 0 5 5h2.5c.28 0 .5.22.5.5v2.3a.4.4 0 0 1-.68.27l-.2-.2a3 3 0 0 0-4.24 0l-4 4a3 3 0 0 0 0 4.25c.3.3.6.46.94.58Z"></path><path fill="currentColor" d="M21.66 8c.03 0 .05-.03.04-.06a3 3 0 0 0-.58-.82l-4.24-4.24a3 3 0 0 0-.82-.58.04.04 0 0 0-.06.04V5a3 3 0 0 0 3 3h2.66ZM18.3 14.3a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1-1.4 1.4L20 17.42V23a1 1 0 1 1-2 0v-5.59l-2.3 2.3a1 1 0 0 1-1.4-1.42l4-4Z"></path></svg>
-                                File Upload</DropdownMenuItem>
+                              {isAlphaEnabled && (
+                                <DropdownMenuItem
+                                  disabled={fields.length >= 5}
+                                  onClick={() =>
+                                    append({
+                                      type: ComponentType.Label,
+                                      label: "File Upload",
+                                      component: {
+                                        type: 19,
+                                        custom_id: crypto.randomUUID().replace(/-/g, '')
+                                      }
+                                    })
+                                  }
+                                ><svg aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M13.82 21.7c.17.05.14.3-.04.3H6a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h7.5c.28 0 .5.22.5.5V5a5 5 0 0 0 5 5h2.5c.28 0 .5.22.5.5v2.3a.4.4 0 0 1-.68.27l-.2-.2a3 3 0 0 0-4.24 0l-4 4a3 3 0 0 0 0 4.25c.3.3.6.46.94.58Z"></path><path fill="currentColor" d="M21.66 8c.03 0 .05-.03.04-.06a3 3 0 0 0-.58-.82l-4.24-4.24a3 3 0 0 0-.82-.58.04.04 0 0 0-.06.04V5a3 3 0 0 0 3 3h2.66ZM18.3 14.3a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1-1.4 1.4L20 17.42V23a1 1 0 1 1-2 0v-5.59l-2.3 2.3a1 1 0 0 1-1.4-1.42l4-4Z"></path></svg>
+                                  File Upload</DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -438,10 +481,261 @@ export default function Home() {
             <Modal form={form} />
           </div>
 
-          <p className="font-semibold mb-1 mt-2">JSON</p>
-          <pre className="overflow-auto lg:overflow-visible border border-border-subtle rounded-md p-4 bg-base-low">
-            {JSON.stringify(form.watch(), null, 2)}
+          <div className="flex items-center gap-2 mb-2 mt-2">
+            <p className="font-semibold">Code</p>
+          </div>
+          <ReactSelect
+            value={codeGenMode === 'json' ? { value: 'json', label: 'JSON' } : { value: 'djs', label: 'discord.js' }}
+            onChange={(option: any) => handleCodeGenModeChange(option.value)}
+            options={[
+              { value: 'json', label: 'JSON' },
+              { value: 'djs', label: 'discord.js' }
+            ]}
+            isSearchable={false}
+            menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+            menuPosition="fixed"
+            styles={{
+              control: (baseStyles) => ({
+                ...baseStyles,
+                minHeight: "43.5px",
+                background: "var(--custom-input-background-color)",
+                border: "1px solid var(--custom-input-border-color)",
+                "&:hover": {
+                  borderColor: "var(--custom-input-hover-border-color)",
+                },
+                boxShadow: "none",
+                boxSizing: "content-box",
+                borderRadius: '8px'
+              }),
+              input: (baseStyles) => ({
+                ...baseStyles,
+                margin: "0",
+                alignItems: "center",
+                display: "flex",
+                color: "oklab(0.899401 -0.00192499 -0.00481987)"
+              }),
+              valueContainer: (baseStyles) => ({
+                ...baseStyles,
+                minHeight: "43.5px",
+                padding: "0 12px",
+              }),
+              singleValue: (baseStyles) => ({
+                ...baseStyles,
+                color: "var(--text-normal)",
+                margin: "0",
+                alignItems: "center",
+                display: "flex",
+                fontWeight: '600',
+              }),
+              placeholder: (baseStyles) => ({
+                ...baseStyles,
+                alignItems: "center",
+                display: "flex",
+              }),
+              option: (baseStyles, state) => ({
+                ...baseStyles,
+                background: state.isSelected
+                  ? "#28282d"
+                  : state.isFocused
+                    ? "#242429"
+                    : "transparent",
+                padding: "9.75px",
+                display: "flex",
+                ":active": {
+                  background: state.isSelected
+                    ? "#28282d"
+                    : state.isFocused
+                      ? "#242429"
+                      : "transparent",
+                },
+              }),
+              menu: (baseStyles) => ({
+                ...baseStyles,
+                color: "oklab(0.786807 -0.0025776 -0.0110238)",
+                background: "var(--surface-higher)",
+                marginTop: '8px',
+                border: '1px solid #97979f1f',
+                borderRadius: '8px'
+              }),
+              menuList: (baseStyles) => ({
+                ...baseStyles,
+                padding: 0,
+              }),
+              indicatorSeparator: () => ({
+                display: "none",
+              }),
+              dropdownIndicator: (baseStyles, state) => ({
+                ...baseStyles,
+                color: "oklab(0.786807 -0.0025776 -0.0110238)",
+                transform: state.selectProps.menuIsOpen
+                  ? "rotate(180deg)"
+                  : "rotate(0)",
+                "&:hover": {
+                  color: "oklab(0.786807 -0.0025776 -0.0110238)",
+                },
+              }),
+              menuPortal: (baseStyles) => ({ ...baseStyles, zIndex: 9999 }),
+            }}
+          />
+
+          {codeGenMode === 'json' ? (
+          <pre className="mt-2 overflow-auto lg:overflow-visible border border-border-subtle rounded-md p-4 bg-base-low">
+            <code 
+              className="language-json"
+              dangerouslySetInnerHTML={{
+                __html: hljs.highlight(JSON.stringify(form.watch(), null, 2), { language: 'json' }).value
+              }}
+            />
           </pre>
+          ) : (
+          <pre className="mt-2 overflow-auto lg:overflow-visible border border-border-subtle rounded-md p-4 bg-base-low">
+            <code 
+              className="language-javascript"
+              dangerouslySetInnerHTML={{
+                __html: (() => {
+                  const code = form.watch('components').some((c) => c.type === ComponentType.Label && c.component.type === 19) 
+                    ? '"The file upload component is not yet supported in discord.js"'
+                    : `interaction.showModal(
+  new ModalBuilder()
+    .setTitle(${JSON.stringify(form.watch('title'))})
+    .setCustomId(${JSON.stringify(form.watch('custom_id'))})${form.watch('components').map((comp) => {
+    if (comp.type === ComponentType.Label) {
+      const component = comp.component;
+      let componentBuilder = '';
+      
+      // TextInput
+      if (component.type === ComponentType.TextInput) {
+        const styleName = component.style === TextInputStyle.Short ? 'TextInputStyle.Short' : 'TextInputStyle.Paragraph';
+        componentBuilder = `new TextInputBuilder()
+                .setCustomId(${JSON.stringify(component.custom_id)})
+                .setStyle(${styleName})${component.placeholder ? `
+                .setPlaceholder(${JSON.stringify(component.placeholder)})` : ''}${component.value ? `
+                .setValue(${JSON.stringify(component.value)})` : ''}${typeof component.min_length === 'number' ? `
+                .setMinLength(${component.min_length})` : ''}${typeof component.max_length === 'number' ? `
+                .setMaxLength(${component.max_length})` : ''}${typeof component.required === 'boolean' ? `
+                .setRequired(${component.required})` : ''}`;
+      }
+      
+      // StringSelect
+      else if (component.type === ComponentType.StringSelect) {
+        const options = component.options.map((opt: any) => {
+          let optBuilder =
+` new StringSelectMenuOptionBuilder()
+              .setLabel(${JSON.stringify(opt.label)})
+              .setValue(${JSON.stringify(opt.value)})`;
+          if (opt.description) optBuilder += `
+              .setDescription(${JSON.stringify(opt.description)})`;
+          if (opt.emoji) {
+            if (opt.emoji.id) {
+              optBuilder += `
+              .setEmoji(${JSON.stringify(opt.emoji.id)})`;
+            } else if (opt.emoji.name) {
+              optBuilder += `
+              .setEmoji(${JSON.stringify(opt.emoji.name)})`;
+            }
+          }
+          if (opt.default) optBuilder += `
+              .setDefault(${opt.default})`;
+          return optBuilder;
+        }).join(',\n            ');
+        
+        componentBuilder = `new StringSelectMenuBuilder()
+            .setCustomId(${JSON.stringify(component.custom_id)})${component.placeholder ? `
+            .setPlaceholder(${JSON.stringify(component.placeholder)})` : ''}${typeof component.min_values === 'number' ? `
+            .setMinValues(${component.min_values})` : ''}${typeof component.max_values === 'number' ? `
+            .setMaxValues(${component.max_values})` : ''}${typeof component.required === 'boolean' ? `
+            .setRequired(${component.required})` : ''}
+            .addOptions(
+            ${options}
+            )`;
+      }
+      
+      // UserSelect
+      else if (component.type === ComponentType.UserSelect) {
+        const defaultUsers = component.default_values?.filter((v: any) => v.type === 'user').map((v: any) => v.id) || [];
+        componentBuilder = `new UserSelectMenuBuilder()
+              .setCustomId(${JSON.stringify(component.custom_id)})${component.placeholder ? `
+              .setPlaceholder(${JSON.stringify(component.placeholder)})` : ''}${typeof component.min_values === 'number' ? `
+              .setMinValues(${component.min_values})` : ''}${typeof component.max_values === 'number' ? `
+              .setMaxValues(${component.max_values})` : ''}${typeof component.required === 'boolean' ? `
+              .setRequired(${component.required})` : ''}${defaultUsers.length > 0 ? `
+              .setDefaultUsers(${JSON.stringify(defaultUsers)})` : ''}`;
+      }
+      
+      // RoleSelect
+      else if (component.type === ComponentType.RoleSelect) {
+        const defaultRoles = component.default_values?.filter((v: any) => v.type === 'role').map((v: any) => v.id) || [];
+        componentBuilder = `new RoleSelectMenuBuilder()
+              .setCustomId(${JSON.stringify(component.custom_id)})${component.placeholder ? `
+              .setPlaceholder(${JSON.stringify(component.placeholder)})` : ''}${typeof component.min_values === 'number' ? `
+              .setMinValues(${component.min_values})` : ''}${typeof component.max_values === 'number' ? `
+              .setMaxValues(${component.max_values})` : ''}${typeof component.required === 'boolean' ? `
+              .setRequired(${component.required})` : ''}${defaultRoles.length > 0 ? `
+              .setDefaultRoles(${JSON.stringify(defaultRoles)})` : ''}`;
+      }
+      
+      // ChannelSelect
+      else if (component.type === ComponentType.ChannelSelect) {
+        const defaultChannels = component.default_values?.filter((v: any) => v.type === 'channel').map((v: any) => v.id) || [];
+        componentBuilder = `new ChannelSelectMenuBuilder()
+              .setCustomId(${JSON.stringify(component.custom_id)})${component.placeholder ? `
+              .setPlaceholder(${JSON.stringify(component.placeholder)})` : ''}${typeof component.min_values === 'number' ? `
+              .setMinValues(${component.min_values})` : ''}${typeof component.max_values === 'number' ? `
+              .setMaxValues(${component.max_values})` : ''}${typeof component.required === 'boolean' ? `
+              .setRequired(${component.required})` : ''}${component.channel_types && component.channel_types.length > 0 ? `
+              .setChannelTypes(${JSON.stringify(component.channel_types)})` : ''}${defaultChannels.length > 0 ? `
+              .setDefaultChannels(${JSON.stringify(defaultChannels)})` : ''}`;
+      }
+      
+      // MentionableSelect
+      else if (component.type === ComponentType.MentionableSelect) {
+        const defaultValues = component.default_values || [];
+        let formattedDefaults = '';
+        if (defaultValues.length > 0) {
+          const valuesStr = defaultValues.map((v: any) => `\n                  ${JSON.stringify(v)}`).join(',');
+          formattedDefaults = `
+                .setDefaultValues([${valuesStr}
+                ])`;
+        }
+        componentBuilder = `new MentionableSelectMenuBuilder()
+                .setCustomId(${JSON.stringify(component.custom_id)})${component.placeholder ? `
+                .setPlaceholder(${JSON.stringify(component.placeholder)})` : ''}${typeof component.min_values === 'number' ? `
+                .setMinValues(${component.min_values})` : ''}${typeof component.max_values === 'number' ? `
+                .setMaxValues(${component.max_values})` : ''}${typeof component.required === 'boolean' ? `
+                .setRequired(${component.required})` : ''}${formattedDefaults}`;
+      }
+      
+      const methodName = component.type === ComponentType.TextInput ? 'setTextInputComponent' :
+                         component.type === ComponentType.StringSelect ? 'setStringSelectMenuComponent' :
+                         component.type === ComponentType.UserSelect ? 'setUserSelectMenuComponent' :
+                         component.type === ComponentType.RoleSelect ? 'setRoleSelectMenuComponent' :
+                         component.type === ComponentType.ChannelSelect ? 'setChannelSelectMenuComponent' :
+                         component.type === ComponentType.MentionableSelect ? 'setMentionableSelectMenuComponent' : '';
+      
+      return `
+      .addLabelComponents(
+        new LabelBuilder()
+          .setLabel(${JSON.stringify(comp.label)})${comp.description ? `
+          .setDescription(${JSON.stringify(comp.description)})` : ''}
+          .${methodName}(
+            ${componentBuilder}
+          )
+      )`;
+    } else if (comp.type === ComponentType.TextDisplay) {
+      return `
+      .addTextDisplayComponents(
+        new TextDisplayBuilder()
+          .setContent(${JSON.stringify(comp.content)})
+      )`;
+    }
+  }).join('')}
+)`;
+                  return hljs.highlight(code, { language: 'javascript' }).value;
+                })()
+              }}
+            />
+          </pre>
+          )}
         </div>
       </div>
     </div>
