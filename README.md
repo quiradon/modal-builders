@@ -1,5 +1,4 @@
 Note: to reval file upload component (not released) use: https://modal.builders?alpha=true
----
 
 Emoji picker, markdown and general design adapted from https://github.com/discohook/discohook
 
