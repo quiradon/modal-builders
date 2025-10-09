@@ -588,7 +588,56 @@ export default function Home() {
             />
           </pre>
           ) : (
-            <pre className="mt-2 overflow-x-auto border border-border-subtle rounded-md p-4 bg-base-low">
+            <>
+              <pre className="mt-2 overflow-x-auto border border-border-subtle rounded-md p-4 bg-base-low">
+                <code 
+                  className="language-javascript"
+                  dangerouslySetInnerHTML={{
+                    __html: (() => {
+                      const components = form.watch('components');
+                      const imports = new Set(['ModalBuilder']);
+                      
+                      // Check if any labels exist
+                      const hasLabels = components.some((c) => c.type === ComponentType.Label);
+                      if (hasLabels) imports.add('LabelBuilder');
+                      
+                      // Check if any text displays exist
+                      const hasTextDisplays = components.some((c) => c.type === ComponentType.TextDisplay);
+                      if (hasTextDisplays) imports.add('TextDisplayBuilder');
+                      
+                      // Check each component type
+                      components.forEach((comp) => {
+                        if (comp.type === ComponentType.Label) {
+                          const component = comp.component;
+                          
+                          if (component.type === ComponentType.TextInput) {
+                            imports.add('TextInputBuilder');
+                            imports.add('TextInputStyle');
+                          } else if (component.type === ComponentType.StringSelect) {
+                            imports.add('StringSelectMenuBuilder');
+                            imports.add('StringSelectMenuOptionBuilder');
+                          } else if (component.type === ComponentType.UserSelect) {
+                            imports.add('UserSelectMenuBuilder');
+                          } else if (component.type === ComponentType.RoleSelect) {
+                            imports.add('RoleSelectMenuBuilder');
+                          } else if (component.type === ComponentType.ChannelSelect) {
+                            imports.add('ChannelSelectMenuBuilder');
+                          } else if (component.type === ComponentType.MentionableSelect) {
+                            imports.add('MentionableSelectMenuBuilder');
+                            if (component.default_values && component.default_values.length > 0) {
+                              imports.add('SelectMenuDefaultValueType');
+                            }
+                          }
+                        }
+                      });
+                      
+                      const importStatement = `import { ${Array.from(imports).sort().join(', ')} } from 'discord.js';`;
+                      return hljs.highlight(importStatement, { language: 'javascript' }).value;
+                    })()
+                  }}
+                />
+              </pre>
+              <pre className="mt-2 overflow-x-auto border border-border-subtle rounded-md p-4 bg-base-low">
             <code 
               className="language-javascript"
               dangerouslySetInnerHTML={{
@@ -741,6 +790,7 @@ export default function Home() {
               }}
             />
           </pre>
+            </>
           )}
         </div>
       </div>
