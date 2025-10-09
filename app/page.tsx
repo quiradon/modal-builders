@@ -631,7 +631,7 @@ export default function Home() {
                         }
                       });
                       
-                      const importStatement = `import { ${Array.from(imports).sort().join(', ')} } from 'discord.js';`;
+                      const importStatement = `import { ${Array.from(imports).sort().join(', ')} } from "discord.js";`;
                       return hljs.highlight(importStatement, { language: 'javascript' }).value;
                     })()
                   }}
