@@ -463,7 +463,7 @@ const mentionableSelectSchema = z.object({
 );
 
 const fileUploadSchema = z.object({
-  type: z.literal(19),
+  type: z.literal(ComponentType.FileUpload),
   custom_id: z.string().min(1).max(100),
   min_values: z.number().int().min(0).max(10).optional(),
   max_values: z.number().int().min(1).max(10).optional(),

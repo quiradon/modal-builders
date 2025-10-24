@@ -39,7 +39,7 @@ import ReactSelect from "react-select";
 hljs.registerLanguage('javascript', javascript);
 hljs.registerLanguage('json', json);
 
-function getComponentName(type: ComponentType | 19) {
+function getComponentName(type: ComponentType) {
   switch (type) {
     case ComponentType.TextInput:
       return "Text Input";
@@ -55,7 +55,7 @@ function getComponentName(type: ComponentType | 19) {
       return "Role Select";
     case ComponentType.MentionableSelect:
       return "User & Role Select";
-    case 19:
+    case ComponentType.FileUpload:
       return "File Upload";
     default:
       return "Unknown Component";
@@ -423,7 +423,7 @@ export default function Home() {
                                     type: ComponentType.Label,
                                     label: "File Upload",
                                     component: {
-                                      type: 19,
+                                      type: ComponentType.FileUpload,
                                       custom_id: crypto.randomUUID().replace(/-/g, '')
                                     }
                                   })
@@ -622,6 +622,8 @@ export default function Home() {
                             if (component.default_values && component.default_values.length > 0) {
                               imports.add('SelectMenuDefaultValueType');
                             }
+                          } else if (component.type === ComponentType.FileUpload) {
+                            imports.add('FileUploadBuilder');
                           }
                         }
                       });
@@ -637,9 +639,7 @@ export default function Home() {
               className="language-javascript"
               dangerouslySetInnerHTML={{
                 __html: (() => {
-                  const code = form.watch('components').some((c) => c.type === ComponentType.Label && c.component.type === 19) 
-                    ? '"The file upload component is not yet supported in discord.js"'
-                    : `interaction.showModal(
+                  const code = `interaction.showModal(
   new ModalBuilder()
     .setTitle(${JSON.stringify(form.watch('title'))})
     .setCustomId(${JSON.stringify(form.watch('custom_id'))})${form.watch('components').map((comp) => {
@@ -755,12 +755,22 @@ export default function Home() {
                 .setRequired(${component.required})` : ''}${formattedDefaults}`;
       }
       
+      // FileUpload
+      else if (component.type === ComponentType.FileUpload) {
+        componentBuilder = `new FileUploadBuilder()
+              .setCustomId(${JSON.stringify(component.custom_id)})${typeof component.min_values === 'number' ? `
+              .setMinValues(${component.min_values})` : ''}${typeof component.max_values === 'number' ? `
+              .setMaxValues(${component.max_values})` : ''}${typeof component.required === 'boolean' ? `
+              .setRequired(${component.required})` : ''}`;
+      }
+      
       const methodName = component.type === ComponentType.TextInput ? 'setTextInputComponent' :
                          component.type === ComponentType.StringSelect ? 'setStringSelectMenuComponent' :
                          component.type === ComponentType.UserSelect ? 'setUserSelectMenuComponent' :
                          component.type === ComponentType.RoleSelect ? 'setRoleSelectMenuComponent' :
                          component.type === ComponentType.ChannelSelect ? 'setChannelSelectMenuComponent' :
-                         component.type === ComponentType.MentionableSelect ? 'setMentionableSelectMenuComponent' : '';
+                         component.type === ComponentType.MentionableSelect ? 'setMentionableSelectMenuComponent' :
+                         component.type === ComponentType.FileUpload ? 'setFileUploadComponent' : '';
       
       return `
       .addLabelComponents(

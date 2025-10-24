@@ -64,7 +64,7 @@ export default function LabelEditor({
           case ComponentType.RoleSelect:
           case ComponentType.MentionableSelect:
             return <SelectMenuEditor form={form} index={index} />
-          case 19:
+          case ComponentType.FileUpload:
             return <FileUploadEditor form={form} index={index} />
           default:
             return <div>Unkown Component</div>

@@ -26,7 +26,7 @@
 		"@twemoji/api": "^16.0.1",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
-		"discord-api-types": "^0.38.26",
+		"discord-api-types": "^0.38.31",
 		"discord-snowflake": "^2.0.0",
 		"highlight.js": "^11.11.1",
 		"lucide-react": "^0.544.0",
