@@ -449,7 +449,7 @@ export default function Modal({ form }: {
                             className="w-full"
                             isClearable={true}
                             isSearchable={true}
-                            placeholder={label.component.placeholder || "Select a role"}
+                            placeholder={label.component.placeholder || "Make a selection"}
                             noOptionsMessage={() => "In Discord you will be able to select roles here"}
                             name={"Select Role"}
                             formatOptionLabel={({ label, color }) => (
