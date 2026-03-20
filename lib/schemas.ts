@@ -95,6 +95,13 @@ const selectOptionSchema = z.object({
   default: z.boolean().optional()
 });
 
+const choiceOptionSchema = z.object({
+  label: z.string().trim().min(1).max(100),
+  value: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(100).optional(),
+  default: z.boolean().optional()
+});
+
 const stringSelectSchema = z.object({
   type: z.literal(ComponentType.StringSelect),
   custom_id: z.string().min(1).max(100),
@@ -500,11 +507,101 @@ const fileUploadSchema = z.object({
   { path: ["min_values"], message: "Must be less than or equal to max values" }
 );
 
+const radioGroupSchema = z.object({
+  type: z.literal(ComponentType.RadioGroup),
+  custom_id: z.string().min(1).max(100),
+  options: z.array(choiceOptionSchema).min(2).max(10),
+  required: z.boolean().optional()
+}).refine(
+  (val) => val.options.filter((opt) => opt.default === true).length <= 1,
+  { path: ["options"], message: "Radio groups can only have one default option" }
+);
+
+const checkboxGroupSchema = z.object({
+  type: z.literal(ComponentType.CheckboxGroup),
+  custom_id: z.string().min(1).max(100),
+  options: z.array(choiceOptionSchema).min(1).max(10),
+  min_values: z.number().int().min(0).max(10).optional(),
+  max_values: z.number().int().min(1).max(10).optional(),
+  required: z.boolean().optional()
+}).refine(
+  (val) => {
+    if (val.min_values === undefined) {
+      return true;
+    }
+
+    const effectiveMaxValues = val.max_values ?? val.options.length;
+    return val.min_values <= effectiveMaxValues;
+  },
+  { path: ["max_values"], message: "Must be greater than or equal to min values" }
+).refine(
+  (val) => {
+    if (val.min_values === undefined) {
+      return true;
+    }
+
+    const effectiveMaxValues = val.max_values ?? val.options.length;
+    return val.min_values <= effectiveMaxValues;
+  },
+  { path: ["min_values"], message: "Must be less than or equal to max values" }
+).refine(
+  (val) => {
+    if (val.max_values === undefined) {
+      return true;
+    }
+
+    return val.max_values <= val.options.length;
+  },
+  { path: ["max_values"], message: "Cannot be greater than the number of options" }
+).refine(
+  (val) => {
+    if (val.min_values === undefined) {
+      return true;
+    }
+
+    return val.min_values <= val.options.length;
+  },
+  { path: ["min_values"], message: "Cannot be greater than the number of options" }
+).refine(
+  (val) => {
+    const defaultCount = val.options.filter((opt) => opt.default === true).length;
+    const effectiveMaxValues = val.max_values ?? val.options.length;
+    return defaultCount <= effectiveMaxValues;
+  },
+  { path: ["options"], message: "Cannot have more default selections than max values" }
+).refine(
+  (val) => {
+    if (val.min_values !== 0) {
+      return true;
+    }
+
+    return val.required === false;
+  },
+  { path: ["required"], message: "Required must be false when min values is 0" }
+);
+
+const checkboxSchema = z.object({
+  type: z.literal(ComponentType.Checkbox),
+  custom_id: z.string().min(1).max(100),
+  default: z.boolean().optional()
+});
+
 export const labelSchema = z.object({
   type: z.literal(ComponentType.Label),
   label: z.string().trim().min(1).max(45),
   description: z.string().trim().min(1).max(100).optional(),
-  component: z.union([textInputSchema, stringSelectSchema, userSelectSchema, channelSelectSchema, roleSelectSchema, mentionableSelectSchema, fileUploadSchema])
+  component: z.union([
+    textInputSchema,
+    stringSelectSchema,
+    userSelectSchema,
+    channelSelectSchema,
+    roleSelectSchema,
+    mentionableSelectSchema,
+    fileUploadSchema,
+    radioGroupSchema,
+    checkboxGroupSchema,
+    checkboxSchema
+  ])
 })
 
 export const textDisplaySchema = z.object({

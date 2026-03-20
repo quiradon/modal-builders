@@ -47,6 +47,12 @@ function getComponentName(type: ComponentType) {
       return "Text Display";
     case ComponentType.StringSelect:
       return "Select Menu";
+    case ComponentType.RadioGroup:
+      return "Radio Group";
+    case ComponentType.CheckboxGroup:
+      return "Checkbox Group";
+    case ComponentType.Checkbox:
+      return "Checkbox";
     case ComponentType.UserSelect:
       return "User Select";
     case ComponentType.ChannelSelect:
@@ -236,6 +242,14 @@ export default function Home() {
     }
     window.history.replaceState(null, '', url.toString());
   }
+
+  const hasUnsupportedDiscordJsComponents = form.watch('components').some((comp) =>
+    comp.type === ComponentType.Label && [
+      ComponentType.RadioGroup,
+      ComponentType.CheckboxGroup,
+      ComponentType.Checkbox
+    ].includes(comp.component.type)
+  );
 
   return (
     <div>
@@ -430,6 +444,61 @@ export default function Home() {
                                 }
                               ><svg aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M13.82 21.7c.17.05.14.3-.04.3H6a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h7.5c.28 0 .5.22.5.5V5a5 5 0 0 0 5 5h2.5c.28 0 .5.22.5.5v2.3a.4.4 0 0 1-.68.27l-.2-.2a3 3 0 0 0-4.24 0l-4 4a3 3 0 0 0 0 4.25c.3.3.6.46.94.58Z"></path><path fill="currentColor" d="M21.66 8c.03 0 .05-.03.04-.06a3 3 0 0 0-.58-.82l-4.24-4.24a3 3 0 0 0-.82-.58.04.04 0 0 0-.06.04V5a3 3 0 0 0 3 3h2.66ZM18.3 14.3a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1-1.4 1.4L20 17.42V23a1 1 0 1 1-2 0v-5.59l-2.3 2.3a1 1 0 0 1-1.4-1.42l4-4Z"></path></svg>
                                 File Upload</DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={fields.length >= 5}
+                                onClick={() =>
+                                  append({
+                                    type: ComponentType.Label,
+                                    label: "Radio Group",
+                                    component: {
+                                      type: ComponentType.RadioGroup,
+                                      custom_id: crypto.randomUUID().replace(/-/g, ''),
+                                      options: [
+                                        {
+                                          label: "Option 1",
+                                          value: crypto.randomUUID().replace(/-/g, '')
+                                        },
+                                        {
+                                          label: "Option 2",
+                                          value: crypto.randomUUID().replace(/-/g, '')
+                                        }
+                                      ]
+                                    }
+                                  })
+                                }
+                              ><svg aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"></circle><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>Radio Group</DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={fields.length >= 5}
+                                onClick={() =>
+                                  append({
+                                    type: ComponentType.Label,
+                                    label: "Checkbox Group",
+                                    component: {
+                                      type: ComponentType.CheckboxGroup,
+                                      custom_id: crypto.randomUUID().replace(/-/g, ''),
+                                      options: [
+                                        {
+                                          label: "Option",
+                                          value: crypto.randomUUID().replace(/-/g, '')
+                                        }
+                                      ]
+                                    }
+                                  })
+                                }
+                              ><svg aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="2"></rect><path d="M8 12l2.5 2.5L16 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path></svg>Checkbox Group</DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={fields.length >= 5}
+                                onClick={() =>
+                                  append({
+                                    type: ComponentType.Label,
+                                    label: "Checkbox",
+                                    component: {
+                                      type: ComponentType.Checkbox,
+                                      custom_id: crypto.randomUUID().replace(/-/g, '')
+                                    }
+                                  })
+                                }
+                              ><svg aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="2"></rect></svg>Checkbox</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -582,6 +651,10 @@ export default function Home() {
               }}
             />
           </pre>
+          ) : hasUnsupportedDiscordJsComponents ? (
+            <div className="mt-2 bg-[#a1630014] border rounded-[8px] border-[#ce9c5c] p-[12px] text-[14px]">
+              The `discord.js` output is not available for modals that use `Radio Group`, `Checkbox Group`, or `Checkbox` yet. JSON output remains correct and can be used directly with the Discord API.
+            </div>
           ) : (
             <>
               <pre className="mt-2 overflow-x-auto border border-border-subtle rounded-md p-4 bg-base-low">

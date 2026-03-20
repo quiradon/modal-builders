@@ -4,12 +4,11 @@ import z from 'zod'
 import { FormControl, FormField, FormItem, FormLabel } from '../ui/form'
 import { Input } from '../ui/input'
 import { Switch } from '../ui/switch'
-import { ComponentType, ChannelType } from 'discord-api-types/v10'
+import { ComponentType } from 'discord-api-types/v10'
 import SelectOptionsEditor from './SelectOptionsEditor'
 import SelectDefaultValuesEditor from './SelectDefaultValuesEditor'
 import { FormReactSelect } from './FormReactSelect'
 import { getChannelIcon } from '@/lib/utils'
-
 
 export default function SelectMenuEditor({
   form,
@@ -19,151 +18,186 @@ export default function SelectMenuEditor({
   index: number
 }) {
   const type = form.watch(`components.${index}.component.type`)
+  const options = form.watch(`components.${index}.component.options`) ?? []
+  const supportsSelectionCounts = [
+    ComponentType.StringSelect,
+    ComponentType.UserSelect,
+    ComponentType.ChannelSelect,
+    ComponentType.RoleSelect,
+    ComponentType.MentionableSelect,
+    ComponentType.CheckboxGroup
+  ].includes(type)
+  const supportsRequired = type !== ComponentType.Checkbox
+  const supportsPlaceholder = [
+    ComponentType.StringSelect,
+    ComponentType.UserSelect,
+    ComponentType.ChannelSelect,
+    ComponentType.RoleSelect,
+    ComponentType.MentionableSelect
+  ].includes(type)
+  const maxValuesUpperBound = type === ComponentType.CheckboxGroup
+    ? Math.min(10, options.length || 10)
+    : type === ComponentType.StringSelect
+      ? Math.min(25, options.length || 25)
+      : 25
+  const usesEditableOptions = [
+    ComponentType.StringSelect,
+    ComponentType.RadioGroup,
+    ComponentType.CheckboxGroup
+  ].includes(type)
   
   return (
     <>
-      <FormField
-        control={form.control}
-        name={`components.${index}.component.required` as const}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>
-              Required
-            </FormLabel>
-            <FormControl>
-              <Switch
-                checked={field.value !== false}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    form.setValue(`components.${index}.component.required`, undefined as unknown as boolean, { shouldValidate: true, shouldDirty: true, shouldTouch: true })
-                    
-                    // If turning required on and min_values is 0, set min_values to 1
-                    const currentMinValues = form.getValues(`components.${index}.component.min_values`);
-                    if (currentMinValues === 0) {
-                      form.setValue(`components.${index}.component.min_values`, 1);
-                    }
-                  } else {
-                    field.onChange(false)
-                  }
-                }}
-              />
-            </FormControl>
-          </FormItem>
-        )}
-      />
-      <div className="flex flex-wrap gap-2">
+      {supportsRequired && (
         <FormField
           control={form.control}
-          name={`components.${index}.component.min_values` as const}
-          render={({ field: inputField }) => (
-            <FormItem className="flex items-center space-x-2 flex-1 min-w-[273px]">
-              <div className="w-full">
-                <FormLabel
-                  count={typeof inputField.value === 'number' ? inputField.value : 0}
-                  min={0}
-                  max={type === ComponentType.StringSelect ? Math.min(25, form.watch(`components.${index}.component.options`)?.length ?? 25) : 25}
-                >
-                  Min Values
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={25}
-                    placeholder="1"
-                    {...inputField}
-                    value={inputField.value === undefined ? '' : inputField.value}
-                    onChange={e => {
-                      const value = e.target.value;
-                      if (value === '') {
-                        form.setValue(`components.${index}.component.min_values`, undefined as unknown as number, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                      } else {
-                        const newValue = +value;
-                        inputField.onChange(newValue);
+          name={`components.${index}.component.required` as const}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Required
+              </FormLabel>
+              <FormControl>
+                <Switch
+                  checked={field.value !== false}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      form.setValue(`components.${index}.component.required`, undefined as unknown as boolean, { shouldValidate: true, shouldDirty: true, shouldTouch: true })
+                      
+                      const currentMinValues = form.getValues(`components.${index}.component.min_values`);
+                      if (currentMinValues === 0) {
+                        form.setValue(`components.${index}.component.min_values`, 1);
+                      }
+                    } else {
+                      field.onChange(false)
+                    }
+                  }}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+      )}
 
-                        // If setting min_values to 0 and required is true, set required to false
-                        if (newValue === 0) {
-                          const currentRequired = form.getValues(`components.${index}.component.required`);
-                          if (currentRequired !== false) {
-                            form.setValue(`components.${index}.component.required`, false);
+      {usesEditableOptions && (
+        <SelectOptionsEditor form={form} index={index} />
+      )}
+
+      {supportsSelectionCounts && (
+        <div className="flex flex-wrap gap-2">
+          <FormField
+            control={form.control}
+            name={`components.${index}.component.min_values` as const}
+            render={({ field: inputField }) => (
+              <FormItem className="flex items-center space-x-2 flex-1 min-w-[273px]">
+                <div className="w-full">
+                  <FormLabel
+                    count={typeof inputField.value === 'number' ? inputField.value : 0}
+                    min={0}
+                    max={maxValuesUpperBound}
+                  >
+                    Min Values
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={maxValuesUpperBound}
+                      placeholder="1"
+                      {...inputField}
+                      value={inputField.value === undefined ? '' : inputField.value}
+                      onChange={e => {
+                        const value = e.target.value;
+                        if (value === '') {
+                          form.setValue(`components.${index}.component.min_values`, undefined as unknown as number, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                        } else {
+                          const newValue = +value;
+                          inputField.onChange(newValue);
+
+                          if (newValue === 0) {
+                            const currentRequired = form.getValues(`components.${index}.component.required`);
+                            if (currentRequired !== false) {
+                              form.setValue(`components.${index}.component.required`, false);
+                            }
                           }
                         }
-                      }
 
-                      // Trigger validation on the max_values field as well
-                      form.trigger(`components.${index}.component.max_values`);
-                    }}
-                  />
-                </FormControl>
-              </div>
-            </FormItem>
-          )}
-        />
+                        form.trigger(`components.${index}.component.max_values`);
+                      }}
+                    />
+                  </FormControl>
+                </div>
+              </FormItem>
+            )}
+          />
 
+          <FormField
+            control={form.control}
+            name={`components.${index}.component.max_values` as const}
+            render={({ field: inputField }) => (
+              <FormItem className="flex items-center space-x-2 flex-1 min-w-[273px]">
+                <div className="w-full">
+                  <FormLabel
+                    count={typeof inputField.value === 'number' ? inputField.value : 0}
+                    min={1}
+                    max={maxValuesUpperBound}
+                  >
+                    Max Values
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="1"
+                      max={maxValuesUpperBound}
+                      {...inputField}
+                      value={inputField.value === undefined ? '' : inputField.value}
+                      onChange={e => {
+                        const value = e.target.value;
+                        if (value === '') {
+                          form.setValue(`components.${index}.component.max_values`, undefined as unknown as number, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                        } else {
+                          inputField.onChange(+value);
+                        }
+
+                        form.trigger(`components.${index}.component.min_values`);
+                      }}
+                    />
+                  </FormControl>
+                </div>
+              </FormItem>
+            )}
+          />
+        </div>
+      )}
+
+      {supportsPlaceholder && (
         <FormField
           control={form.control}
-          name={`components.${index}.component.max_values` as const}
-          render={({ field: inputField }) => (
-            <FormItem className="flex items-center space-x-2 flex-1 min-w-[273px]">
-              <div className="w-full">
-                <FormLabel
-                  count={typeof inputField.value === 'number' ? inputField.value : 0}
-                  min={1}
-                  max={type === ComponentType.StringSelect ? Math.min(25, form.watch(`components.${index}.component.options`)?.length ?? 25) : 25}
-                >
-                  Max Values
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="1"
-                    max={type === ComponentType.StringSelect ? Math.min(25, form.watch(`components.${index}.component.options`)?.length ?? 25) : 25}
-                    {...inputField}
-                    value={inputField.value === undefined ? '' : inputField.value}
-                    onChange={e => {
-                      const value = e.target.value;
-                      if (value === '') {
-                        form.setValue(`components.${index}.component.max_values`, undefined as unknown as number, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                      } else {
-                        inputField.onChange(+value);
-                      }
-                      // Trigger validation on the min_values field as well
-                      form.trigger(`components.${index}.component.min_values`);
-                    }}
-                  />
-                </FormControl>
-              </div>
+          name={`components.${index}.component.placeholder` as const}
+          render={({ field }) => (
+            <FormItem className="w-0 min-w-full">
+              <FormLabel count={field.value?.length ?? 0} max={150}>Placeholder</FormLabel>
+              <FormControl>
+                <Input
+                  className="w-0 min-w-full"
+                  placeholder="Make a selection"
+                  {...field}
+                  value={field.value || ''}
+                  onChange={e => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      form.setValue(`components.${index}.component.placeholder`, undefined as unknown as string, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                    } else {
+                      field.onChange(value);
+                    }
+                  }}
+                />
+              </FormControl>
             </FormItem>
           )}
         />
-      </div>
-
-      <FormField
-        control={form.control}
-        name={`components.${index}.component.placeholder` as const}
-        render={({ field }) => (
-          <FormItem className="w-0 min-w-full">
-            <FormLabel count={field.value?.length ?? 0} max={150}>Placeholder</FormLabel>
-            <FormControl>
-              <Input
-                className="w-0 min-w-full"
-                placeholder="Make a selection"
-                {...field}
-                value={field.value || ''}
-                onChange={e => {
-                  const value = e.target.value;
-                  if (value === '') {
-                    form.setValue(`components.${index}.component.placeholder`, undefined as unknown as string, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                  } else {
-                    field.onChange(value);
-                  }
-                }}
-              />
-            </FormControl>
-          </FormItem>
-        )}
-      />
+      )}
 
       {type === ComponentType.ChannelSelect && (
         <FormField
@@ -229,10 +263,8 @@ export default function SelectMenuEditor({
         />
       )}
 
-      {(()=>{
+      {(() => {
         switch (type) {
-          case ComponentType.StringSelect:
-            return <SelectOptionsEditor form={form} index={index} />
           case ComponentType.UserSelect:
           case ComponentType.ChannelSelect:
           case ComponentType.RoleSelect:

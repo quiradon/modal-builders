@@ -55,6 +55,54 @@ const CustomOption = (props: {
   );
 };
 
+function RadioOptionPreview({
+  label,
+  description,
+  checked
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3 py-[6px]">
+      <div className={`mt-[3px] flex size-[22px] shrink-0 items-center justify-center rounded-full border ${checked ? 'border-[#5865f2]' : 'border-[#6d6f78]'}`}>
+        {checked && <div className="size-[10px] rounded-full bg-[#5865f2]" />}
+      </div>
+      <div>
+        <div className="text-[16px] font-medium text-text-header-primary">{label}</div>
+        {description && <div className="text-[14px] text-[#b5bac1]">{description}</div>}
+      </div>
+    </div>
+  );
+}
+
+function CheckboxOptionPreview({
+  label,
+  description,
+  checked
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3 py-[6px]">
+      <div className={`mt-[3px] flex size-[22px] shrink-0 items-center justify-center rounded-[6px] border ${checked ? 'border-[#5865f2] bg-[#5865f2]' : 'border-[#6d6f78] bg-transparent'}`}>
+        {checked && (
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24">
+            <path d="M5 12.5 9.5 17 19 7.5" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"></path>
+          </svg>
+        )}
+      </div>
+      <div>
+        <div className="text-[16px] font-medium text-text-header-primary">{label}</div>
+        {description && <div className="text-[14px] text-[#b5bac1]">{description}</div>}
+      </div>
+    </div>
+  );
+}
+
 export default function Modal({ form }: {
   form: UseFormReturn<z.infer<typeof modalSchema>>
 }) {
@@ -83,19 +131,25 @@ export default function Modal({ form }: {
             switch (component.type) {
               case ComponentType.Label:
                 const label = component;
+                const isCheckbox = label.component.type === ComponentType.Checkbox;
+                const isRequired = 'required' in label.component ? label.component.required !== false : false;
                 return <div key={index} className="pr-[18px] pb-[1em] pl-6">
-                  <p className="text-[18px] mb-2 text-normal font-[600]">
-                    {label.label.trim()}
-                    {label.component.required !== false && (
-                      <span className="text-text-danger" style={{ paddingLeft: "4px" }}>
-                        *
-                      </span>
-                    )}
-                  </p>
-                  {label.description && (
-                    <p className="text-[14px] text-normal mb-2">
-                      {label.description.trim()}
-                    </p>
+                  {!isCheckbox && (
+                    <>
+                      <p className="text-[18px] mb-2 text-normal font-[600]">
+                        {label.label.trim()}
+                        {isRequired && (
+                          <span className="text-text-danger" style={{ paddingLeft: "4px" }}>
+                            *
+                          </span>
+                        )}
+                      </p>
+                      {label.description && (
+                        <p className="text-[14px] text-normal mb-2">
+                          {label.description.trim()}
+                        </p>
+                      )}
+                    </>
                   )}
                   <div className="relative">
                     {(() => {
@@ -647,6 +701,37 @@ export default function Modal({ form }: {
                               }),
                               menuPortal: (baseStyles) => ({ ...baseStyles, zIndex: 9999 }),
                             }}
+                          />;
+
+                        case ComponentType.RadioGroup:
+                          return <div className="space-y-[2px]">
+                            {label.component.options.map((option) => (
+                              <RadioOptionPreview
+                                key={option.value}
+                                label={option.label}
+                                description={option.description}
+                                checked={option.default === true}
+                              />
+                            ))}
+                          </div>;
+
+                        case ComponentType.CheckboxGroup:
+                          return <div className="space-y-[2px]">
+                            {label.component.options.map((option) => (
+                              <CheckboxOptionPreview
+                                key={option.value}
+                                label={option.label}
+                                description={option.description}
+                                checked={option.default === true}
+                              />
+                            ))}
+                          </div>;
+
+                        case ComponentType.Checkbox:
+                          return <CheckboxOptionPreview
+                            label={label.label.trim()}
+                            description={label.description?.trim()}
+                            checked={label.component.default === true}
                           />;
 
                         case ComponentType.FileUpload:

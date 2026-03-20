@@ -9,6 +9,7 @@ import TextInputEditor from './TextInputEditor'
 import { ComponentType } from 'discord-api-types/v10'
 import SelectMenuEditor from './SelectMenuEditor'
 import FileUploadEditor from './FileUploadEditor'
+import CheckboxEditor from './CheckboxEditor'
 
 export default function LabelEditor({
   form,
@@ -59,6 +60,8 @@ export default function LabelEditor({
           case ComponentType.TextInput:
             return <TextInputEditor form={form} index={index} />
           case ComponentType.StringSelect:
+          case ComponentType.RadioGroup:
+          case ComponentType.CheckboxGroup:
           case ComponentType.UserSelect:
           case ComponentType.ChannelSelect:
           case ComponentType.RoleSelect:
@@ -66,6 +69,8 @@ export default function LabelEditor({
             return <SelectMenuEditor form={form} index={index} />
           case ComponentType.FileUpload:
             return <FileUploadEditor form={form} index={index} />
+          case ComponentType.Checkbox:
+            return <CheckboxEditor form={form} index={index} />
           default:
             return <div>Unkown Component</div>
         }
